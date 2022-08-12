@@ -54,7 +54,7 @@ runs:
         FILE_NAME: project-${{ inputs.organization }}-${{ inputs.project_number }}.json
         QUERY: |
           query ($organization: String!, $project_number: Int!) {
-            organization(login: $organization) {
+            user(login: $organization) {
               projectV2(number: $project_number) {
                 id
                 items(first: 100) {
