@@ -1,8 +1,8 @@
 name: Update project
 description: Updates an item's fields on a GitHub Projects (beta) board based on a workflow dispatch (or other) event's input.
 inputs:
-  organization:
-    description: The organization that contains the project, defaults to the current repository owner
+  user:
+    description: The user that contains the project, defaults to the current repository owner
     required: false
     default: ${{ github.repository_owner }}
   project_number:
@@ -47,14 +47,14 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         PROJECT_NUMBER: ${{ inputs.project_number }}
-        ORGANIZATION: ${{ inputs.organization }}
+        USER: ${{ inputs.user }}
         FIELD: ${{ inputs.field }}
         CONTENT_ID: ${{ inputs.content_id }}
         VALUE: ${{ inputs.value }}
-        FILE_NAME: project-${{ inputs.organization }}-${{ inputs.project_number }}.json
+        FILE_NAME: project-${{ inputs.user }}-${{ inputs.project_number }}.json
         QUERY: |
-          query ($organization: String!, $project_number: Int!) {
-            user(login: $organization) {
+          query ($user: String!, $project_number: Int!) {
+            user(login: $user) {
               projectV2(number: $project_number) {
                 id
                 items(first: 100) {
@@ -90,7 +90,7 @@ runs:
       run: |
         # Fetch project metadata
         if [ ! -f "$FILE_NAME" ]; then
-          gh api graphql -f query="$QUERY" -F project_number=$PROJECT_NUMBER -F organization=$ORGANIZATION > "$FILE_NAME"
+          gh api graphql -f query="$QUERY" -F project_number=$PROJECT_NUMBER -F user=$USER > "$FILE_NAME"
         else
           echo "Using cached project metadata from '$FILE_NAME'"
         fi
@@ -107,17 +107,17 @@ runs:
         FILE_NAME: ${{ steps.fetch_project_metadata.outputs.file_name }}
       run: |
           # Parse project metadata
-          echo '::set-output name=project_id::'$(jq -r '.data.organization.projectV2.id' "$FILE_NAME")
-          echo '::set-output name=item_id::'$(jq -r '.data.organization.projectV2.items.nodes[] | select(.content.id==$CONTENT_ID) | .id' "$FILE_NAME" --arg CONTENT_ID "$CONTENT_ID")
-          echo '::set-output name=item_title::'$(jq -r '.data.organization.projectV2.items.nodes[] | select(.content.id==$CONTENT_ID) | .content.title' "$FILE_NAME" --arg CONTENT_ID "$CONTENT_ID")
-          echo '::set-output name=field_id::'$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name==$FIELD) | .id' "$FILE_NAME" --arg FIELD "$FIELD")
-          echo '::set-output name=field_type::'$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name==$FIELD) | .dataType | ascii_downcase' "$FILE_NAME" --arg FIELD "$FIELD")
-          echo '::set-output name=option_id::'$(jq -r '.data.organization.projectV2.fields.nodes[] | select(.name==$FIELD) | .options[]? | select(.name | contains($VALUE)) | .id' "$FILE_NAME" --arg VALUE "$VALUE" --arg FIELD "$FIELD")
+          echo '::set-output name=project_id::'$(jq -r '.data.user.projectV2.id' "$FILE_NAME")
+          echo '::set-output name=item_id::'$(jq -r '.data.user.projectV2.items.nodes[] | select(.content.id==$CONTENT_ID) | .id' "$FILE_NAME" --arg CONTENT_ID "$CONTENT_ID")
+          echo '::set-output name=item_title::'$(jq -r '.data.user.projectV2.items.nodes[] | select(.content.id==$CONTENT_ID) | .content.title' "$FILE_NAME" --arg CONTENT_ID "$CONTENT_ID")
+          echo '::set-output name=field_id::'$(jq -r '.data.user.projectV2.fields.nodes[] | select(.name==$FIELD) | .id' "$FILE_NAME" --arg FIELD "$FIELD")
+          echo '::set-output name=field_type::'$(jq -r '.data.user.projectV2.fields.nodes[] | select(.name==$FIELD) | .dataType | ascii_downcase' "$FILE_NAME" --arg FIELD "$FIELD")
+          echo '::set-output name=option_id::'$(jq -r '.data.user.projectV2.fields.nodes[] | select(.name==$FIELD) | .options[]? | select(.name | contains($VALUE)) | .id' "$FILE_NAME" --arg VALUE "$VALUE" --arg FIELD "$FIELD")
 
     - name: Ensure project, item, field, and option were found
       env:
         PROJECT_NUMBER: ${{ inputs.project_number }}
-        ORGANIZATION: ${{ inputs.organization }}
+        USER: ${{ inputs.user }}
         FIELD: ${{ inputs.field }}
         CONTENT_ID: ${{ inputs.content_id }}
         VALUE: ${{ inputs.value }}
@@ -129,7 +129,7 @@ runs:
       shell: bash
       run: |
         # Ensure project, item, field, and option were found
-        if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then echo "Project '$PROJECT_NUMBER' not found for organization '$ORGANIZATION'"; exit 1; fi
+        if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then echo "Project '$PROJECT_NUMBER' not found for user '$USER'"; exit 1; fi
         if [ -z "$ITEM_ID" ]; then echo "Item not found with ID '$CONTENT_ID'"; exit 1; fi
         if [ -z "$FIELD_ID" ]; then echo "Field '$FIELD' not found"; exit 1; fi
         if [[ "$FIELD_TYPE" = "single_select" && -z "$OPTION_ID" ]]; then echo "Option not found with value '$VALUE'"; exit 1; fi
